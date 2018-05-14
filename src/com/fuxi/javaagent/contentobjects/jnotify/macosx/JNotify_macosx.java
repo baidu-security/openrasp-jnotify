@@ -1,11 +1,32 @@
 package com.fuxi.javaagent.contentobjects.jnotify.macosx;
 
 import com.fuxi.javaagent.contentobjects.jnotify.JNotifyException;
+import com.fuxi.javaagent.contentobjects.jnotify.Observer;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class JNotify_macosx {
     private static Object initCondition = new Object();
     private static Object countLock = new Object();
     private static int watches = 0;
+
+    public static List<Observer> list=new ArrayList<>();
+    public static String  msg;
+
+    public static void registerObserver(Observer o){
+        list.add(o);
+    }
+    public static void notifyObserver(){
+        for (Observer o: list) {
+            o.update(msg);
+        }
+    }
+
+    public static void setInfomation(String s) {
+        JNotify_macosx.msg = s;
+        notifyObserver();
+    }
 
     static {
 //        String path = null;
@@ -18,22 +39,28 @@ public class JNotify_macosx {
 //        System.load(path);
         Thread thread = new Thread("FSEvent thread") //$NON-NLS-1$
         {
+
             public void run() {
-                nativeInit();
-                synchronized (initCondition) {
-                    initCondition.notifyAll();
-                    initCondition = null;
-                }
-                while (true) {
-                    synchronized (countLock) {
-                        while (watches == 0) {
-                            try {
-                                countLock.wait();
-                            } catch (InterruptedException e) {
+                try {
+                    nativeInit();
+                    synchronized (initCondition) {
+                        initCondition.notifyAll();
+                        initCondition = null;
+                    }
+                    while (true) {
+                        synchronized (countLock) {
+                            while (watches == 0) {
+                                try {
+                                    countLock.wait();
+                                } catch (InterruptedException e) {
+                                }
                             }
                         }
+                        nativeNotifyLoop();
                     }
-                    nativeNotifyLoop();
+                } catch (Throwable e) {
+                    String exception=e.getMessage();
+                    setInfomation(exception);
                 }
             }
         };

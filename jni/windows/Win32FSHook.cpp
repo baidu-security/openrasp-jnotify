@@ -43,6 +43,8 @@
 
 Win32FSHook *Win32FSHook::instance = 0;
 
+extern JavaVM *_jvm;
+extern jclass _clazz;
 Win32FSHook::Win32FSHook() 
 {
 	_callback = 0;
@@ -186,70 +188,84 @@ DWORD WINAPI Win32FSHook::mainLoop( LPVOID lpParam )
 	OVERLAPPED* pov = NULL;
 	WCHAR name[4096];
 
-	while (_this->_isRunning)
-	{
-	    pov = NULL;
-	    BOOL fSuccess = GetQueuedCompletionStatus(
-	                    hPort,         // Completion port handle
-	                    &dwNoOfBytes,  // Bytes transferred
-	                    &ulKey,
-	                    &pov,          // OVERLAPPED structure
-	                    INFINITE       // Notification time-out interval
-	                    );
-	    if (fSuccess)
-	    {
-	    	if (dwNoOfBytes == 0) continue; // happens when removing a watch some times.
-	    	if (dwNoOfBytes == EXIT_SIGNAL)
-	    		continue;
-	    	if (dwNoOfBytes == DELETE_WD_SIGNAL)
-	    	{
-	    		WatchData *wd = (WatchData*)ulKey;
-	    		delete wd;
-	    		continue;
-	    	}
+    		try{
+    		        while (_this->_isRunning){
 
-	    	int wd = (int)ulKey;
-//	    	EnterCriticalSection(&_this->_cSection);
-	    	WatchData *watchData = _this->find(wd);
-	    	if (!watchData)
-	    	{
-	    		log("mainLoop : ignoring event for watch id %d, no longer in wid2WatchData map", wd);
-	    		continue;
-	    	}
+                        pov = NULL;
+                	    BOOL fSuccess = GetQueuedCompletionStatus(
+                	                    hPort,         // Completion port handle
+                	                    &dwNoOfBytes,  // Bytes transferred
+                	                    &ulKey,
+                	                    &pov,          // OVERLAPPED structure
+                	                    INFINITE       // Notification time-out interval
+                	                    );
+                	    if (fSuccess)
+                	    {
+                	    	if (dwNoOfBytes == 0) continue; // happens when removing a watch some times.
+                	    	if (dwNoOfBytes == EXIT_SIGNAL)
+                	    		continue;
+                	    	if (dwNoOfBytes == DELETE_WD_SIGNAL)
+                	    	{
+                	    		WatchData *wd = (WatchData*)ulKey;
+                	    		delete wd;
+                	    		continue;
+                	    	}
 
-	    	const char* buffer = watchData->getBuffer();
-//	    	char buffer[watchData->getBufferSize()];
-//	    	memcpy(buffer, watchData->getBuffer(), dwNoOfBytes);
-//			LeaveCriticalSection(&_this->_cSection);
-	    	FILE_NOTIFY_INFORMATION *event;
-	    	DWORD offset = 0;
-	    	do
-	    	{
-	    		event = (FILE_NOTIFY_INFORMATION*)(buffer+offset);
-	    		int action = event->Action;
-	    		DWORD len = event->FileNameLength / sizeof(WCHAR);
-	    		for (DWORD k=0;k<len && k < (sizeof(name)-sizeof(WCHAR))/sizeof(WCHAR);k++)
-	    		{
-	    			name[k] = event->FileName[k];
-	    		}
-	    		name[len] = 0;
+                	    	int wd = (int)ulKey;
+                //	    	EnterCriticalSection(&_this->_cSection);
+                	    	WatchData *watchData = _this->find(wd);
+                	    	if (!watchData)
+                	    	{
+                	    		log("mainLoop : ignoring event for watch id %d, no longer in wid2WatchData map", wd);
+                	    		continue;
+                	    	}
 
-				_this->postEvent(new Event(watchData->getId(), action, watchData->getPath(), name));
-	    		offset += event->NextEntryOffset;
-	    	}
-	    	while (event->NextEntryOffset != 0);
+                	    	const char* buffer = watchData->getBuffer();
+                //	    	char buffer[watchData->getBufferSize()];
+                //	    	memcpy(buffer, watchData->getBuffer(), dwNoOfBytes);
+                //			LeaveCriticalSection(&_this->_cSection);
+                	    	FILE_NOTIFY_INFORMATION *event;
+                	    	DWORD offset = 0;
+                	    	do
+                	    	{
+                	    		event = (FILE_NOTIFY_INFORMATION*)(buffer+offset);
+                	    		int action = event->Action;
+                	    		DWORD len = event->FileNameLength / sizeof(WCHAR);
+                	    		for (DWORD k=0;k<len && k < (sizeof(name)-sizeof(WCHAR))/sizeof(WCHAR);k++)
+                	    		{
+                	    			name[k] = event->FileName[k];
+                	    		}
+                	    		name[len] = 0;
 
-	    	int res = watchData->watchDirectory();
-	    	if (res != 0)
-	    	{
-	    		log("Error watching dir %s : %d",watchData->getPath(), res);
-	    	}
-	    }
-	    else
-	    {
-	    	log("GetQueuedCompletionStatus returned an error");
-	    }
-	}
+                				_this->postEvent(new Event(watchData->getId(), action, watchData->getPath(), name));
+                	    		offset += event->NextEntryOffset;
+                	    	}
+                	    	while (event->NextEntryOffset != 0);
+
+                	    	int res = watchData->watchDirectory();
+                	    	if (res != 0)
+                	    	{
+                	    		log("Error watching dir %s : %d",watchData->getPath(), res);
+                	    	}
+                	    }
+                	    else
+                	    {
+                	    	log("GetQueuedCompletionStatus returned an error");
+                	    }
+
+                }
+    		}
+    		catch(int error){
+    		   JNIEnv *env;
+   		       _jvm->AttachCurrentThread((void **)&env, NULL);
+               _jvm->GetEnv((void**)&env, JNI_VERSION_1_2);
+               jmethodID jmid = env->GetStaticMethodID(_clazz,"setInfomation","(I)V");
+               env->CallStaticVoidMethod(_clazz, jmid, error);
+    		}
+
+
+
+
 	debug("mainLoop exits");
 	return 0;
 }
@@ -278,36 +294,47 @@ DWORD WINAPI Win32FSHook::eventLoop( LPVOID lpParam )
 	debug("eventLoop starts");
 	Win32FSHook* _this = (Win32FSHook*)lpParam;
 	queue<Event*> local;
-	while (1)
-	{
-		// quickly copy to local queue, minimizing the time holding the lock
-		EnterCriticalSection(&_this->_eventQueueLock);
-		while(_this->_eventQueue.size() > 0)
-		{
-			Event *e = _this->_eventQueue.front();
-			local.push(e);
-			_this->_eventQueue.pop();
-		}
-		LeaveCriticalSection(&_this->_eventQueueLock);
 
-		while(local.size() > 0)
-		{
-			Event *e = local.front();
-			local.pop();
-			if (_this->_isRunning)
-			{
-				_this->_callback(e->_watchID, e->_action, e->_rootPath, e->_filePath);
-			}
-			delete e;
-		}
+	    try{
+	         while (1)
+             {
+	        // quickly copy to local queue, minimizing the time holding the lock
+            		EnterCriticalSection(&_this->_eventQueueLock);
+            		while(_this->_eventQueue.size() > 0)
+            		{
+            			Event *e = _this->_eventQueue.front();
+            			local.push(e);
+            			_this->_eventQueue.pop();
+            		}
+            		LeaveCriticalSection(&_this->_eventQueueLock);
 
-		if (_this->_isRunning)
-		{
-			WaitForSingleObjectEx(_this->_eventQueueEvent, INFINITE, TRUE);
-		}
-		else
-			break;
-	}
+            		while(local.size() > 0)
+            		{
+            			Event *e = local.front();
+            			local.pop();
+            			if (_this->_isRunning)
+            			{
+            				_this->_callback(e->_watchID, e->_action, e->_rootPath, e->_filePath);
+            			}
+            			delete e;
+            		}
+
+            		if (_this->_isRunning)
+            		{
+            			WaitForSingleObjectEx(_this->_eventQueueEvent, INFINITE, TRUE);
+            		}
+            		else
+            			break;
+            }
+	    }
+	    catch(int error){
+	        JNIEnv *env;
+            _jvm->AttachCurrentThread((void **)&env, NULL);
+            _jvm->GetEnv((void**)&env, JNI_VERSION_1_2);
+            jmethodID jmid = env->GetStaticMethodID(_clazz,"setInfomation","(I)V");
+            env->CallStaticVoidMethod(_clazz, jmid, error);
+	    }
+
 	debug("eventLoop exits");
 	return 0;
 }

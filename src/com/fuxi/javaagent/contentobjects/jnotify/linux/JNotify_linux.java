@@ -36,13 +36,17 @@
 
 package com.fuxi.javaagent.contentobjects.jnotify.linux;
 
-import com.fuxi.javaagent.contentobjects.jnotify.JNotifyException;
+import com.fuxi.javaagent.contentobjects.jnotify.*;
+import com.fuxi.javaagent.contentobjects.jnotify.Observer;
+
+import java.util.*;
 
 public class JNotify_linux {
     static final boolean DEBUG = false;
     public static boolean WARN = true;
 
-
+    public static List<Observer> list=new ArrayList<>();
+    public static String msg;
     static {
 //        try {
 //            String path = URLDecoder.decode(JNotify_linux.class.getResource("/" + "libjnotify.so").getFile().replace("+", "%2B")
@@ -111,6 +115,20 @@ public class JNotify_linux {
     private static native String getErrorDesc(long errorCode);
 
 
+    public static void registerObserver(Observer o){
+        list.add(o);
+    }
+    public static void notifyObserver(){
+        for (Observer o: list) {
+            o.update(msg);
+        }
+    }
+
+    public static void setInfomation(String s) {
+        JNotify_linux.msg = s;
+        notifyObserver();
+    }
+
     public static int addWatch(String path, int mask) throws JNotifyException {
         int wd = nativeAddWatch(path, mask);
         if (wd < 0) {
@@ -133,7 +151,12 @@ public class JNotify_linux {
     private static void init() {
         Thread thread = new Thread("INotify thread") {
             public void run() {
-                nativeNotifyLoop();
+                try {
+                    nativeNotifyLoop();
+                } catch (Throwable e) {
+                    String exception=e.getMessage();
+                    setInfomation(exception);
+                }
             }
         };
         thread.setDaemon(true);

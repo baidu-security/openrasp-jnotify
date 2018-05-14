@@ -40,7 +40,7 @@
 #include <map>
 #include <queue>
 #include <utility>
-
+#include <jni.h>
 
 #include "WatchData.h"
 

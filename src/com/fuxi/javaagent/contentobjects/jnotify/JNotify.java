@@ -37,6 +37,10 @@
 package com.fuxi.javaagent.contentobjects.jnotify;
 
 
+import com.fuxi.javaagent.contentobjects.jnotify.linux.JNotify_linux;
+import com.fuxi.javaagent.contentobjects.jnotify.macosx.JNotify_macosx;
+import com.fuxi.javaagent.contentobjects.jnotify.win32.JNotify_win32;
+
 public class JNotify {
     public static final int FILE_CREATED = 0x1;
     public static final int FILE_DELETED = 0x2;
@@ -54,7 +58,7 @@ public class JNotify {
 
     }
 
-    public static void init(String releasePath) {
+    public static void init(String releasePath,Observer observer) {
 
         String osName = System.getProperty("os.name").toLowerCase();
         String libFullName;
@@ -70,6 +74,7 @@ public class JNotify {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+            JNotify_linux .registerObserver(observer);
         } else if (osName.startsWith("windows")) {
             try {
                 if (System.getProperty("os.arch").contains("64")) {
@@ -82,6 +87,7 @@ public class JNotify {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+            JNotify_win32.registerObserver(observer);
         } else if (osName.startsWith("mac os x")) {
             try {
                 load(releasePath, "libjnotify.dylib");
@@ -89,6 +95,7 @@ public class JNotify {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+            JNotify_macosx.registerObserver(observer);
         } else {
             throw new RuntimeException("Unsupported OS : " + osName);
         }

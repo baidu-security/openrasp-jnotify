@@ -38,8 +38,10 @@
 package com.fuxi.javaagent.contentobjects.jnotify.win32;
 
 import com.fuxi.javaagent.contentobjects.jnotify.JNotifyException;
+import com.fuxi.javaagent.contentobjects.jnotify.Observer;
 
-import java.lang.reflect.InvocationHandler;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class JNotify_win32 {
@@ -81,6 +83,9 @@ public class JNotify_win32 {
     public static final int FILE_ACTION_RENAMED_OLD_NAME = 0x00000004;
     public static final int FILE_ACTION_RENAMED_NEW_NAME = 0x00000005;
 
+    public static List<Observer> list=new ArrayList<>();
+    public static String msg;
+
     private static native int nativeInit();
 
     private static native int nativeAddWatch(String path, long mask, boolean watchSubtree);
@@ -90,6 +95,20 @@ public class JNotify_win32 {
     private static native void nativeRemoveWatch(int wd);
 
     private static IWin32NotifyListener _notifyListener;
+
+    public static void registerObserver(Observer o){
+        list.add(o);
+    }
+    public static void notifyObserver(){
+        for (Observer o: list) {
+            o.update(msg);
+        }
+    }
+
+    public static void setInfomation(int error) {
+       JNotify_win32.msg =  getErrorDesc(error);
+        notifyObserver();
+    }
 
     public static int addWatch(String path, long mask, boolean watchSubtree) throws JNotifyException {
         int wd = nativeAddWatch(path, mask, watchSubtree);
