@@ -83,7 +83,7 @@ public class JNotify_win32 {
     public static final int FILE_ACTION_RENAMED_OLD_NAME = 0x00000004;
     public static final int FILE_ACTION_RENAMED_NEW_NAME = 0x00000005;
 
-    public static List<Observer> list=new ArrayList<>();
+    public static List<Observer> list=new ArrayList<Observer>();
     public static String msg;
 
     private static native int nativeInit();

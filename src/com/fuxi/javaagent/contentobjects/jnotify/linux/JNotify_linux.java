@@ -45,7 +45,7 @@ public class JNotify_linux {
     static final boolean DEBUG = false;
     public static boolean WARN = true;
 
-    public static List<Observer> list=new ArrayList<>();
+    public static List<Observer> list=new ArrayList<Observer>();
     public static String msg;
     static {
 //        try {

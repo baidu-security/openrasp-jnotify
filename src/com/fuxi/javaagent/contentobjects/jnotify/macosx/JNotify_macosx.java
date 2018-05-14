@@ -11,7 +11,7 @@ public class JNotify_macosx {
     private static Object countLock = new Object();
     private static int watches = 0;
 
-    public static List<Observer> list=new ArrayList<>();
+    public static List<Observer> list=new ArrayList<Observer>();
     public static String  msg;
 
     public static void registerObserver(Observer o){
