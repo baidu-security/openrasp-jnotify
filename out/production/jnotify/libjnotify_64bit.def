@@ -1,6 +1,0 @@
-EXPORTS
-    JNI_OnLoad @1
-    Java_com_fuxi_javaagent_contentobjects_jnotify_win32_JNotify_1win32_getErrorDesc @2
-    Java_com_fuxi_javaagent_contentobjects_jnotify_win32_JNotify_1win32_nativeAddWatch @3
-    Java_com_fuxi_javaagent_contentobjects_jnotify_win32_JNotify_1win32_nativeInit @4
-    Java_com_fuxi_javaagent_contentobjects_jnotify_win32_JNotify_1win32_nativeRemoveWatch @5
